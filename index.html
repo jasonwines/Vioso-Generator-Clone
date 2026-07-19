@@ -62,7 +62,7 @@ input[type="text"] {
 input[type="number"] {
   background: #26263e; border: 1px solid #3a3a58;
   color: #fff; padding: 5px 7px; border-radius: 5px; font-size: 12px;
-  width: 74px; text-align: center;
+  width: 72px; text-align: center;
 }
 input[type="range"] { flex: 1; accent-color: #00c8e8; cursor: pointer; }
 input[type="color"] {
@@ -79,7 +79,7 @@ input[type="file"] {
 .info { font-size: 12px; color: #00c8e8; font-weight: 700; }
 
 /* ── Toggle ── */
-.tog { position: relative; width: 50px; height: 26px; flex-shrink: 0; }
+.tog { position: relative; width: 50px; height: 26px; flex-shrink: 0; margin-left: auto; }
 .tog input { display: none; }
 .tog-t {
   position: absolute; inset: 0; background: #3a3a58;
@@ -103,6 +103,7 @@ input[type="file"] {
   border-radius: 6px; padding: 9px; font-size: 13px;
   font-weight: 800; cursor: pointer; width: 100%; margin-top: 2px;
   letter-spacing: 0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .save-btn:hover { filter: brightness(1.12); }
 .save-btn:active { filter: brightness(0.9); }
@@ -131,9 +132,9 @@ input[type="file"] {
 
     <div class="ctrl-row">
       <span class="lbl">Displays (cols × rows)</span>
-      <input type="number" id="dispCols" value="1" min="1" max="16" style="width:60px">
+      <input type="number" id="dispCols" value="1" min="1" max="16">
       <span class="sep">×</span>
-      <input type="number" id="dispRows" value="1" min="1" max="16" style="width:60px">
+      <input type="number" id="dispRows" value="1" min="1" max="16">
     </div>
 
     <div class="ctrl-row">
@@ -165,7 +166,7 @@ input[type="file"] {
         <span class="lbl sm">Logo Image</span>
         <label class="tog"><input type="checkbox" id="logoEnabled"><span class="tog-t"></span></label>
       </div>
-      <div class="ctrl-row" id="logoSizeRow" style="display:none">
+      <div class="ctrl-row" id="logoSizeRow" style="visibility:hidden">
         <span class="lbl sm">Logo Size</span>
         <input type="range" id="logoSize" min="2" max="40" value="12">
         <span class="val" id="logoSizeVal">12%</span>
@@ -177,7 +178,7 @@ input[type="file"] {
       <input type="file" id="logoFile" accept="image/*">
     </div>
 
-    <button class="save-btn" id="saveBtn">⬇ Save Image (high-res)</button>
+    <button class="save-btn" id="saveBtn">⬇ Download</button>
   </div>
 
   <!-- ═══ RIGHT COLUMN ═══ -->
@@ -251,6 +252,13 @@ let logoImg = null;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
 
+function sanitizeFilename(str) {
+  return (str || 'Test Pattern')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/\s+/g, '_');
+}
+
 function invertHex(hex) {
   const v = parseInt(hex.replace('#', ''), 16);
   const r = 255 - ((v >> 16) & 255);
@@ -313,10 +321,10 @@ function drawAll(ctx, W, H, s) {
     for (let c = 1; c < s.cs; c++) {
       const x = c * (s.dW - s.oxr);
       if (s.oxr <= 0) continue;
-      ctx.fillStyle = 'rgba(255,159,10,0.4)';
+      ctx.fillStyle = 'rgba(102,102,102,0.5)';
       ctx.fillRect(x, 0, s.oxr, H);
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,159,10,0.95)';
+      ctx.strokeStyle = 'rgba(160,160,160,0.9)';
       ctx.lineWidth = Math.max(2, s.oxr * 0.01);
       ctx.setLineDash([Math.max(10, s.oxr * 0.05), Math.max(6, s.oxr * 0.03)]);
       ctx.strokeRect(x, 0, s.oxr, H);
@@ -339,10 +347,10 @@ function drawAll(ctx, W, H, s) {
     for (let r = 1; r < s.rs; r++) {
       const y = r * (s.dH - s.oyr);
       if (s.oyr <= 0) continue;
-      ctx.fillStyle = 'rgba(255,159,10,0.4)';
+      ctx.fillStyle = 'rgba(102,102,102,0.5)';
       ctx.fillRect(0, y, W, s.oyr);
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,159,10,0.95)';
+      ctx.strokeStyle = 'rgba(160,160,160,0.9)';
       ctx.lineWidth = Math.max(2, s.oyr * 0.01);
       ctx.setLineDash([Math.max(10, s.oyr * 0.05), Math.max(6, s.oyr * 0.03)]);
       ctx.strokeRect(0, y, W, s.oyr);
@@ -621,6 +629,12 @@ function generate() {
   document.getElementById('arDisplay').textContent =
     arw > 120 ? `${(W/H).toFixed(2)}:1` : `${arw}:${arh}`;
 
+  // Filename derived from pattern name + total output size
+  const filename = `${sanitizeFilename(s.name)}_${W}x${H}`;
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.dataset.filename = filename;
+  saveBtn.textContent = `⬇ Download ${filename}`;
+
   // Scale preview to fit available space
   const maxW = window.innerWidth - 24;
   const maxH = document.getElementById('preview').clientHeight - 20;
@@ -653,7 +667,7 @@ document.querySelectorAll('input').forEach(el => {
 document.getElementById('logoEnabled').addEventListener('change', function () {
   const on = this.checked;
   document.getElementById('logoFileRow').style.display = on ? 'flex' : 'none';
-  document.getElementById('logoSizeRow').style.display = on ? 'flex' : 'none';
+  document.getElementById('logoSizeRow').style.visibility = on ? 'visible' : 'hidden';
 });
 
 // Logo file
@@ -665,14 +679,14 @@ document.getElementById('logoFile').addEventListener('change', e => {
 });
 
 // Download full-res
-document.getElementById('saveBtn').addEventListener('click', () => {
+document.getElementById('saveBtn').addEventListener('click', function () {
   const s = getS();
   const { W, H } = totals(s);
   const tmp = document.createElement('canvas');
   tmp.width = W; tmp.height = H;
   drawAll(tmp.getContext('2d'), W, H, s);
   const a = document.createElement('a');
-  a.download = `testpattern-${W}x${H}.png`;
+  a.download = `${this.dataset.filename || `testpattern_${W}x${H}`}.png`;
   a.href = tmp.toDataURL('image/png');
   a.click();
 });
