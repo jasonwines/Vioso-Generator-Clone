@@ -36,6 +36,8 @@ body {
   height: 310px;
   flex-shrink: 0;
   overflow: hidden;
+  max-width: 1080px;
+  margin: 0 auto;
 }
 .col {
   padding: 14px 18px;
@@ -53,7 +55,10 @@ body {
   color: #b0b0cc; white-space: nowrap;
   min-width: 148px;
 }
-.lbl.sm { min-width: 100px; }
+.lbl.sm {
+  width: 120px; min-width: 120px; max-width: 120px;
+  overflow: hidden; text-overflow: ellipsis;
+}
 
 input[type="text"] {
   flex: 1; background: #26263e; border: 1px solid #3a3a58;
@@ -79,7 +84,7 @@ input[type="file"] {
 .info { font-size: 12px; color: #00c8e8; font-weight: 700; }
 
 /* ── Toggle ── */
-.tog { position: relative; width: 50px; height: 26px; flex-shrink: 0; margin-left: auto; }
+.tog { position: relative; width: 50px; height: 26px; flex-shrink: 0; }
 .tog input { display: none; }
 .tog-t {
   position: absolute; inset: 0; background: #3a3a58;
@@ -94,8 +99,9 @@ input[type="file"] {
 .tog input:checked + .tog-t::after { transform: translateX(24px); }
 
 /* ── Pair row ── */
-.pair { display: flex; gap: 14px; }
-.pair > .ctrl-row { flex: 1; }
+.pair { display: flex; gap: 22px; }
+.pair > .ctrl-row { flex: 0 0 190px; }
+.pair > .ctrl-row.grow { flex: 1 1 auto; }
 
 /* ── Save button ── */
 .save-btn {
@@ -166,14 +172,14 @@ input[type="file"] {
         <span class="lbl sm">Logo Image</span>
         <label class="tog"><input type="checkbox" id="logoEnabled"><span class="tog-t"></span></label>
       </div>
-      <div class="ctrl-row" id="logoSizeRow" style="visibility:hidden">
+      <div class="ctrl-row grow" id="logoSizeRow" style="visibility:hidden">
         <span class="lbl sm">Logo Size</span>
         <input type="range" id="logoSize" min="2" max="40" value="12">
         <span class="val" id="logoSizeVal">12%</span>
       </div>
     </div>
 
-    <div class="ctrl-row" id="logoFileRow" style="display:none">
+    <div class="ctrl-row" id="logoFileRow" style="visibility:hidden">
       <span class="lbl sm">Logo File</span>
       <input type="file" id="logoFile" accept="image/*">
     </div>
@@ -666,7 +672,7 @@ document.querySelectorAll('input').forEach(el => {
 // Logo toggle
 document.getElementById('logoEnabled').addEventListener('change', function () {
   const on = this.checked;
-  document.getElementById('logoFileRow').style.display = on ? 'flex' : 'none';
+  document.getElementById('logoFileRow').style.visibility = on ? 'visible' : 'hidden';
   document.getElementById('logoSizeRow').style.visibility = on ? 'visible' : 'hidden';
 });
 
