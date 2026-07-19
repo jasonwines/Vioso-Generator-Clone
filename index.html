@@ -429,11 +429,10 @@ function drawGrid(ctx, W, H, s) {
   }
   ctx.stroke();
 
-  // Center lines — one vertical line through the center of each display column,
-  // one horizontal line through the center of each display row, PLUS the true
-  // global center of the whole image. Each is snapped to the nearest actual grid
-  // line so it sits exactly on top of it, and stays anchored (not tied to grid
-  // cell size for its position) so it never shifts.
+  // Center lines — one vertical + one horizontal line crossing through the exact
+  // middle of every FULL circle (partial/clipped circles at the edges are
+  // skipped). Uses the same circle geometry as drawCircles: circles are spaced
+  // one diameter apart, anchored on the canvas's true horizontal center.
   if (s.thickCenter) {
     ctx.save();
     ctx.strokeStyle = lc;
@@ -443,18 +442,23 @@ function drawGrid(ctx, W, H, s) {
     const vxs = new Set();
     const hys = new Set();
 
-    // True center of the entire composite image
-    vxs.add(cx);
-    hys.add(cy);
-
-    // Each display column/row center, snapped to the nearest grid line
-    for (let c = 0; c < s.cs; c++) {
-      const pcx = c * (s.dW - s.oxr) + s.dW / 2;
-      vxs.add(cx + Math.round((pcx - cx) / cs) * cs);
-    }
     for (let r = 0; r < s.rs; r++) {
-      const pcy = r * (s.dH - s.oyr) + s.dH / 2;
-      hys.add(cy + Math.round((pcy - cy) / cs) * cs);
+      const pcy  = r * (s.dH - s.oyr) + s.dH / 2;
+      const rad  = s.dH / 2;
+      const diam = s.dH;
+      const cx0  = W / 2;
+      const maxSteps = Math.ceil(W / diam) + 2;
+      let rowHasFullCircle = false;
+
+      for (let i = -maxSteps; i <= maxSteps; i++) {
+        const x = cx0 + i * diam;
+        if (x - rad < 0 || x + rad > W) continue; // skip partial/clipped circles
+        vxs.add(x);
+        rowHasFullCircle = true;
+      }
+      if (rowHasFullCircle) {
+        hys.add(pcy);
+      }
     }
 
     vxs.forEach(x => { ctx.moveTo(x, 0); ctx.lineTo(x, H); });
