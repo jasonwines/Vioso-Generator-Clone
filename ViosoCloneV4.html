@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multi-Display Test Pattern Generator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1c1c2e;
+  color: #d8d8e8;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Preview ── */
+#preview {
+  background: #050508;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 2px solid #2a2a3e;
+  padding: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+#canvas { display: block; max-width: 100%; max-height: 100%; }
+
+/* ── Controls ── */
+#controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 310px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.col {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  overflow-y: auto;
+}
+.col:first-child { border-right: 1px solid #2a2a3e; }
+
+/* ── Form controls ── */
+.ctrl-row { display: flex; align-items: center; gap: 8px; }
+.lbl {
+  font-size: 12px; font-weight: 700;
+  color: #b0b0cc; white-space: nowrap;
+  min-width: 148px;
+}
+.lbl.sm { min-width: 100px; }
+
+input[type="text"] {
+  flex: 1; background: #26263e; border: 1px solid #3a3a58;
+  color: #fff; padding: 5px 9px; border-radius: 5px; font-size: 12px;
+}
+input[type="number"] {
+  background: #26263e; border: 1px solid #3a3a58;
+  color: #fff; padding: 5px 7px; border-radius: 5px; font-size: 12px;
+  width: 74px; text-align: center;
+}
+input[type="range"] { flex: 1; accent-color: #00c8e8; cursor: pointer; }
+input[type="color"] {
+  width: 48px; height: 30px; border: 2px solid #3a3a58;
+  border-radius: 5px; cursor: pointer; background: none; padding: 1px;
+}
+input[type="file"] {
+  flex: 1; font-size: 11px; color: #999;
+  background: #26263e; border: 1px solid #3a3a58;
+  border-radius: 5px; padding: 4px 6px;
+}
+.sep { color: #555; font-size: 13px; flex-shrink: 0; }
+.val { font-size: 11px; color: #00c8e8; min-width: 36px; text-align: right; flex-shrink: 0; }
+.info { font-size: 12px; color: #00c8e8; font-weight: 700; }
+
+/* ── Toggle ── */
+.tog { position: relative; width: 50px; height: 26px; flex-shrink: 0; }
+.tog input { display: none; }
+.tog-t {
+  position: absolute; inset: 0; background: #3a3a58;
+  border-radius: 26px; cursor: pointer; transition: background .2s;
+}
+.tog-t::after {
+  content: ''; position: absolute;
+  width: 20px; height: 20px; top: 3px; left: 3px;
+  background: #fff; border-radius: 50%; transition: transform .2s;
+}
+.tog input:checked + .tog-t { background: #00c8e8; }
+.tog input:checked + .tog-t::after { transform: translateX(24px); }
+
+/* ── Pair row ── */
+.pair { display: flex; gap: 14px; }
+.pair > .ctrl-row { flex: 1; }
+
+/* ── Save button ── */
+.save-btn {
+  background: #00c8e8; color: #000; border: none;
+  border-radius: 6px; padding: 9px; font-size: 13px;
+  font-weight: 800; cursor: pointer; width: 100%; margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+.save-btn:hover { filter: brightness(1.12); }
+.save-btn:active { filter: brightness(0.9); }
+</style>
+</head>
+<body>
+
+<div id="preview"><canvas id="canvas"></canvas></div>
+
+<div id="controls">
+
+  <!-- ═══ LEFT COLUMN ═══ -->
+  <div class="col">
+
+    <div class="ctrl-row">
+      <span class="lbl">Pattern Name</span>
+      <input type="text" id="patName" value="Name your testpattern">
+    </div>
+
+    <div class="ctrl-row">
+      <span class="lbl">Display Size (px)</span>
+      <input type="number" id="dispW" value="3840" min="64" max="7680">
+      <span class="sep">×</span>
+      <input type="number" id="dispH" value="2160" min="64" max="4320">
+    </div>
+
+    <div class="ctrl-row">
+      <span class="lbl">Displays (cols × rows)</span>
+      <input type="number" id="dispCols" value="1" min="1" max="16" style="width:60px">
+      <span class="sep">×</span>
+      <input type="number" id="dispRows" value="1" min="1" max="16" style="width:60px">
+    </div>
+
+    <div class="ctrl-row">
+      <span class="lbl">Blend Overlap (px)</span>
+      <input type="number" id="overlapX" value="0" min="0" max="4000">
+      <span class="sep">×</span>
+      <input type="number" id="overlapY" value="0" min="0" max="4000">
+    </div>
+
+    <div class="ctrl-row">
+      <span class="lbl">Total Output Size</span>
+      <span id="totalDisplay" class="info">3650 × 1080</span>
+      <span id="arDisplay" class="val" style="color:#888;min-width:60px"></span>
+    </div>
+
+    <div class="pair">
+      <div class="ctrl-row">
+        <span class="lbl sm">Show Blend Zone</span>
+        <label class="tog"><input type="checkbox" id="showBlend"><span class="tog-t"></span></label>
+      </div>
+      <div class="ctrl-row">
+        <span class="lbl sm">Blend Hatching</span>
+        <label class="tog"><input type="checkbox" id="hatching"><span class="tog-t"></span></label>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="ctrl-row">
+        <span class="lbl sm">Logo Image</span>
+        <label class="tog"><input type="checkbox" id="logoEnabled"><span class="tog-t"></span></label>
+      </div>
+      <div class="ctrl-row" id="logoSizeRow" style="display:none">
+        <span class="lbl sm">Logo Size</span>
+        <input type="range" id="logoSize" min="2" max="40" value="12">
+        <span class="val" id="logoSizeVal">12%</span>
+      </div>
+    </div>
+
+    <div class="ctrl-row" id="logoFileRow" style="display:none">
+      <span class="lbl sm">Logo File</span>
+      <input type="file" id="logoFile" accept="image/*">
+    </div>
+
+    <button class="save-btn" id="saveBtn">⬇ Save Image (high-res)</button>
+  </div>
+
+  <!-- ═══ RIGHT COLUMN ═══ -->
+  <div class="col">
+
+    <div class="ctrl-row">
+      <span class="lbl">Text Size</span>
+      <input type="range" id="textScale" min="100" max="300" value="100" step="5">
+      <span class="val" id="textScaleVal">100%</span>
+    </div>
+
+    <div class="ctrl-row">
+      <span class="lbl">Grid Cell Size (px)</span>
+      <input type="range" id="cellSize" min="20" max="400" value="140" step="5">
+      <span class="val" id="cellSizeVal">140</span>
+    </div>
+
+    <div class="ctrl-row">
+      <span class="lbl">Grid Line Width (px)</span>
+      <input type="range" id="lineWidth" min="1" max="14" value="2" step="1">
+      <span class="val" id="lineWidthVal">2</span>
+    </div>
+
+    <div class="pair">
+      <div class="ctrl-row">
+        <span class="lbl sm">Grid Color</span>
+        <input type="color" id="lineColor" value="#ff2222">
+      </div>
+      <div class="ctrl-row">
+        <span class="lbl sm">Text Color</span>
+        <input type="color" id="textColor" value="#ffffff">
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="ctrl-row">
+        <span class="lbl sm">Center Lines</span>
+        <label class="tog"><input type="checkbox" id="thickCenter" checked><span class="tog-t"></span></label>
+      </div>
+      <div class="ctrl-row"></div>
+    </div>
+
+    <div class="pair">
+      <div class="ctrl-row">
+        <span class="lbl sm">Circles</span>
+        <label class="tog"><input type="checkbox" id="showCircles" checked><span class="tog-t"></span></label>
+      </div>
+      <div class="ctrl-row">
+        <span class="lbl sm">Color Bar</span>
+        <label class="tog"><input type="checkbox" id="showColorBar"><span class="tog-t"></span></label>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="ctrl-row">
+        <span class="lbl sm">Green Border</span>
+        <label class="tog"><input type="checkbox" id="showBorder" checked><span class="tog-t"></span></label>
+      </div>
+      <div class="ctrl-row">
+        <span class="lbl sm">Invert Colors</span>
+        <label class="tog"><input type="checkbox" id="invert"><span class="tog-t"></span></label>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /controls -->
+
+<script>
+let logoImg = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+
+function invertHex(hex) {
+  const v = parseInt(hex.replace('#', ''), 16);
+  const r = 255 - ((v >> 16) & 255);
+  const g = 255 - ((v >> 8) & 255);
+  const b = 255 - (v & 255);
+  return '#' + [r, g, b].map(n => n.toString(16).padStart(2, '0')).join('');
+}
+
+function getS() {
+  const dW = Math.max(64,  +document.getElementById('dispW').value    || 1920);
+  const dH = Math.max(64,  +document.getElementById('dispH').value    || 1080);
+  const cs = Math.max(1,   +document.getElementById('dispCols').value || 1);
+  const rs = Math.max(1,   +document.getElementById('dispRows').value || 1);
+  let oxr  = Math.max(0,   +document.getElementById('overlapX').value || 0);
+  let oyr  = Math.max(0,   +document.getElementById('overlapY').value || 0);
+  oxr = Math.min(oxr, Math.floor(dW * 0.88));
+  oyr = Math.min(oyr, Math.floor(dH * 0.88));
+  const invert = document.getElementById('invert').checked;
+  const rawTc = document.getElementById('textColor').value;
+  return {
+    name:       document.getElementById('patName').value || 'Test Pattern',
+    dW, dH, cs, rs, oxr, oyr,
+    textScale: (+document.getElementById('textScale').value || 100) / 100,
+    cellSize:   Math.max(10, +document.getElementById('cellSize').value || 140),
+    lw:         Math.max(1,  +document.getElementById('lineWidth').value || 2),
+    lc:         document.getElementById('lineColor').value,
+    tc:         invert ? invertHex(rawTc) : rawTc,
+    thickCenter: document.getElementById('thickCenter').checked,
+    circles:    document.getElementById('showCircles').checked,
+    colorbar:   document.getElementById('showColorBar').checked,
+    showBlend:  document.getElementById('showBlend').checked,
+    hatch:      document.getElementById('hatching').checked,
+    invert,
+    border:     document.getElementById('showBorder').checked,
+    logo:       document.getElementById('logoEnabled').checked,
+    logoSz:     +document.getElementById('logoSize').value || 12,
+  };
+}
+
+function totals(s) {
+  const W = s.cs * s.dW - (s.cs - 1) * s.oxr;
+  const H = s.rs * s.dH - (s.rs - 1) * s.oyr;
+  return { W, H };
+}
+
+// ── Drawing functions ─────────────────────────────────────────────────────────
+
+function drawAll(ctx, W, H, s) {
+  const bg = s.invert ? '#ffffff' : '#000000';
+  const fg = s.invert ? '#000000' : '#ffffff';
+
+  // Background
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Blend zones
+  if (s.showBlend && (s.oxr > 0 || s.oyr > 0)) {
+    ctx.save();
+    // Vertical blend bands (between columns)
+    for (let c = 1; c < s.cs; c++) {
+      const x = c * (s.dW - s.oxr);
+      if (s.oxr <= 0) continue;
+      ctx.fillStyle = 'rgba(255,159,10,0.4)';
+      ctx.fillRect(x, 0, s.oxr, H);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,159,10,0.95)';
+      ctx.lineWidth = Math.max(2, s.oxr * 0.01);
+      ctx.setLineDash([Math.max(10, s.oxr * 0.05), Math.max(6, s.oxr * 0.03)]);
+      ctx.strokeRect(x, 0, s.oxr, H);
+      ctx.restore();
+      if (s.hatch) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1.5;
+        const step = Math.max(8, s.oxr / 10);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x, 0, s.oxr, H); ctx.clip();
+        ctx.beginPath();
+        for (let i = -H; i < s.oxr + H; i += step) {
+          ctx.moveTo(x + i, 0); ctx.lineTo(x + i + H, H);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+    // Horizontal blend bands (between rows)
+    for (let r = 1; r < s.rs; r++) {
+      const y = r * (s.dH - s.oyr);
+      if (s.oyr <= 0) continue;
+      ctx.fillStyle = 'rgba(255,159,10,0.4)';
+      ctx.fillRect(0, y, W, s.oyr);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,159,10,0.95)';
+      ctx.lineWidth = Math.max(2, s.oyr * 0.01);
+      ctx.setLineDash([Math.max(10, s.oyr * 0.05), Math.max(6, s.oyr * 0.03)]);
+      ctx.strokeRect(0, y, W, s.oyr);
+      ctx.restore();
+      if (s.hatch) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1.5;
+        const step = Math.max(8, s.oyr / 10);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, y, W, s.oyr); ctx.clip();
+        ctx.beginPath();
+        for (let i = -W; i < s.oyr + W; i += step) {
+          ctx.moveTo(0, y + i); ctx.lineTo(W, y + i + W);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Grid
+  drawGrid(ctx, W, H, s);
+
+  // Circles (clipped to canvas)
+  if (s.circles) drawCircles(ctx, W, H, s, fg);
+
+  // Color bar
+  if (s.colorbar) drawColorBar(ctx, W, H, s);
+
+  // Info text overlay
+  drawInfo(ctx, W, H, s);
+
+  // Logo
+  if (s.logo && logoImg) drawLogo(ctx, W, H, s);
+
+  // Green border
+  if (s.border) {
+    const bw = Math.max(2, Math.ceil(Math.min(W, H) / 500));
+    ctx.strokeStyle = '#00dd00';
+    ctx.lineWidth = bw;
+    ctx.strokeRect(bw * 0.5, bw * 0.5, W - bw, H - bw);
+  }
+}
+
+function drawGrid(ctx, W, H, s) {
+  const { cellSize: cs, lw, lc, tc } = s;
+  const cx = W / 2, cy = H / 2;
+
+  ctx.save();
+  ctx.strokeStyle = lc;
+  ctx.lineWidth = lw;
+
+  const rng = Math.ceil(Math.max(W, H) / cs) + 2;
+
+  // Vertical grid lines
+  ctx.beginPath();
+  for (let i = -rng; i <= rng; i++) {
+    const x = cx + i * cs;
+    if (x < -lw || x > W + lw) continue;
+    ctx.moveTo(x, 0); ctx.lineTo(x, H);
+  }
+  ctx.stroke();
+
+  // Horizontal grid lines
+  ctx.beginPath();
+  for (let i = -rng; i <= rng; i++) {
+    const y = cy + i * cs;
+    if (y < -lw || y > H + lw) continue;
+    ctx.moveTo(0, y); ctx.lineTo(W, y);
+  }
+  ctx.stroke();
+
+  // Center lines — one vertical line through the center of each display column,
+  // one horizontal line through the center of each display row, PLUS the true
+  // global center of the whole image. Each is snapped to the nearest actual grid
+  // line so it sits exactly on top of it, and stays anchored (not tied to grid
+  // cell size for its position) so it never shifts.
+  if (s.thickCenter) {
+    ctx.save();
+    ctx.strokeStyle = lc;
+    ctx.lineWidth = Math.max(lw * 2.5, lw + 5);
+    ctx.beginPath();
+
+    const vxs = new Set();
+    const hys = new Set();
+
+    // True center of the entire composite image
+    vxs.add(cx);
+    hys.add(cy);
+
+    // Each display column/row center, snapped to the nearest grid line
+    for (let c = 0; c < s.cs; c++) {
+      const pcx = c * (s.dW - s.oxr) + s.dW / 2;
+      vxs.add(cx + Math.round((pcx - cx) / cs) * cs);
+    }
+    for (let r = 0; r < s.rs; r++) {
+      const pcy = r * (s.dH - s.oyr) + s.dH / 2;
+      hys.add(cy + Math.round((pcy - cy) / cs) * cs);
+    }
+
+    vxs.forEach(x => { ctx.moveTo(x, 0); ctx.lineTo(x, H); });
+    hys.forEach(y => { ctx.moveTo(0, y); ctx.lineTo(W, y); });
+
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Column and row labels
+  const fs = Math.max(8, Math.min(cs * 0.22, H * 0.022));
+  ctx.font = `600 ${fs}px monospace`;
+  ctx.fillStyle = tc;
+  ctx.textBaseline = 'middle';
+
+  const ty = fs * 0.72, by = H - fs * 0.72;
+  const lx = fs * 0.72, rx = W - fs * 0.72;
+
+  // Column numbers (skip 0: right = +1,+2,… / left = -1,-2,…)
+  ctx.textAlign = 'center';
+  for (let n = 1; ; n++) {
+    const x = cx + (n - 0.5) * cs;
+    if (x > W + cs) break;
+    if (x > 0 && x < W) { ctx.fillText(n, x, ty); ctx.fillText(n, x, by); }
+  }
+  for (let n = 1; ; n++) {
+    const x = cx - (n - 0.5) * cs;
+    if (x < -cs) break;
+    if (x > 0 && x < W) { ctx.fillText(-n, x, ty); ctx.fillText(-n, x, by); }
+  }
+
+  // Row letters (above center = A,B,C… / below = a,b,c…)
+  const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for (let n = 1; ; n++) {
+    const y = cy - (n - 0.5) * cs;
+    if (y < -cs) break;
+    if (y > 0 && y < H) {
+      const L = n <= 26 ? AZ[n - 1] : `${n}`;
+      ctx.textAlign = 'left';  ctx.fillText(L, lx, y);
+      ctx.textAlign = 'right'; ctx.fillText(L, rx, y);
+    }
+  }
+  for (let n = 1; ; n++) {
+    const y = cy + (n - 0.5) * cs;
+    if (y > H + cs) break;
+    if (y > 0 && y < H) {
+      const L = n <= 26 ? AZ[n - 1].toLowerCase() : `${n}`;
+      ctx.textAlign = 'left';  ctx.fillText(L, lx, y);
+      ctx.textAlign = 'right'; ctx.fillText(L, rx, y);
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawCircles(ctx, W, H, s, fg) {
+  // Center circle at W/2. Additional circles spread left & right,
+  // each touching the previous (spacing = diameter = dH). Clipped to canvas.
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+  ctx.strokeStyle = fg;
+  ctx.lineWidth = Math.max(s.lw, Math.ceil(Math.min(W, H) / 450));
+
+  for (let r = 0; r < s.rs; r++) {
+    const pcy  = r * (s.dH - s.oyr) + s.dH / 2;
+    const rad  = s.dH / 2;          // radius = half display height → touches top & bottom
+    const diam = s.dH;              // circles touch, not overlap → spacing = diameter
+    const cx0  = W / 2;             // anchor: horizontal centre of total canvas
+
+    const maxSteps = Math.ceil(W / diam) + 2; // enough to reach both edges
+
+    for (let i = -maxSteps; i <= maxSteps; i++) {
+      const x = cx0 + i * diam;
+      if (x + rad < 0 || x - rad > W) continue; // completely off-canvas
+      ctx.beginPath();
+      ctx.arc(x, pcy, rad, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawColorBar(ctx, W, H, s) {
+  // 8 square tiles, each ~120px at 1080p. Width = 8 × tile size.
+  const tileH = Math.round(Math.max(30, Math.min(H * 0.111, W * 0.065)));
+  const barW  = tileH * 8;
+  const barX  = Math.round((W - barW) / 2);
+  // Position bar so its center sits at ~62% height, leaving space above for text and below for logo
+  const barY  = Math.round(H * 0.565);
+
+  const colors = s.invert
+    ? ['#e0e0e0','#d8d800','#00d8d8','#00d800','#d800d8','#d80000','#0000d8','#1c1c1c']
+    : ['#ffffff','#ffff00','#00ffff','#00ff00','#ff00ff','#ff0000','#0000ff','#000000'];
+
+  colors.forEach((col, i) => {
+    ctx.fillStyle = col;
+    ctx.fillRect(barX + i * tileH, barY, tileH, tileH);
+  });
+
+  // Border between tiles and around bar
+  ctx.strokeStyle = s.invert ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = Math.max(1, Math.ceil(H / 600));
+  for (let i = 1; i < colors.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(barX + i * tileH, barY);
+    ctx.lineTo(barX + i * tileH, barY + tileH);
+    ctx.stroke();
+  }
+  ctx.strokeRect(barX, barY, barW, tileH);
+}
+
+function drawInfo(ctx, W, H, s) {
+  const { name, tc, cellSize: cs, invert } = s;
+  const g = gcd(W, H);
+  const arw = W / g, arh = H / g;
+  const ar = arw > 120 ? `${(W / H).toFixed(2)}:1` : `${arw}:${arh}`;
+  const gcols = Math.ceil(W / cs);
+  const grows = Math.ceil(H / cs);
+
+  const base = Math.max(10, H * 0.038) * (s.textScale || 1);
+  const titleSize = base * 1.42;
+  const lineSize  = base * 0.82;
+
+  // Line-height multipliers (tight but safely non-overlapping)
+  const titleLH = titleSize * 1.15;
+  const lineLH  = lineSize * 1.25;
+
+  const lines = [
+    { text: name,                                  size: titleSize, bold: true,  lh: titleLH },
+    { text: `${W}px × ${H}px`,                     size: lineSize,  bold: false, lh: lineLH  },
+    { text: ar,                                    size: lineSize,  bold: false, lh: lineLH  },
+    { text: `${gcols} × ${grows} full squares`,    size: lineSize,  bold: false, lh: lineLH  },
+  ];
+
+  // Total block height = sum of line-heights (first line's own lh sets its slot too)
+  const blockH = lines.reduce((sum, l) => sum + l.lh, 0);
+
+  // Centre the block on H/4 (midpoint between top edge and centre line)
+  let y = H * 0.25 - blockH / 2 + lines[0].lh / 2;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = tc;
+  ctx.shadowColor = invert ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.75)';
+  ctx.shadowBlur = base * 0.55;
+
+  lines.forEach(l => {
+    ctx.font = `${l.bold ? 'bold ' : ''}${l.size}px sans-serif`;
+    ctx.fillText(l.text, W / 2, y);
+    y += l.lh;
+  });
+
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawLogo(ctx, W, H, s) {
+  if (!logoImg || !logoImg.complete) return;
+  const maxH = H * s.logoSz / 100;
+  const maxW = W * 0.5;
+  const scale = Math.min(maxH / logoImg.naturalHeight, maxW / logoImg.naturalWidth);
+  const lw = logoImg.naturalWidth * scale;
+  const lh = logoImg.naturalHeight * scale;
+  ctx.drawImage(logoImg, (W - lw) / 2, H * 0.82 - lh / 2, lw, lh);
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function generate() {
+  const s = getS();
+  const { W, H } = totals(s);
+
+  // Update info displays
+  document.getElementById('totalDisplay').textContent = `${W} × ${H}`;
+  const g = gcd(W, H);
+  const arw = W / g, arh = H / g;
+  document.getElementById('arDisplay').textContent =
+    arw > 120 ? `${(W/H).toFixed(2)}:1` : `${arw}:${arh}`;
+
+  // Scale preview to fit available space
+  const maxW = window.innerWidth - 24;
+  const maxH = document.getElementById('preview').clientHeight - 20;
+  const scale = Math.min(1, maxW / W, maxH / H);
+  const pw = Math.round(W * scale), ph = Math.round(H * scale);
+
+  const canvas = document.getElementById('canvas');
+  canvas.width = pw; canvas.height = ph;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  drawAll(ctx, W, H, s);
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('input').forEach(el => {
+  if (el.type === 'file') return;
+  el.addEventListener('input', generate);
+  el.addEventListener('change', generate);
+});
+
+// Slider value displays
+[['cellSize','cellSizeVal',''], ['lineWidth','lineWidthVal',''], ['logoSize','logoSizeVal','%'], ['textScale','textScaleVal','%']]
+  .forEach(([id, valId, suffix]) => {
+    const el = document.getElementById(id);
+    const vl = document.getElementById(valId);
+    if (el && vl) el.addEventListener('input', () => { vl.textContent = el.value + suffix; });
+  });
+
+// Logo toggle
+document.getElementById('logoEnabled').addEventListener('change', function () {
+  const on = this.checked;
+  document.getElementById('logoFileRow').style.display = on ? 'flex' : 'none';
+  document.getElementById('logoSizeRow').style.display = on ? 'flex' : 'none';
+});
+
+// Logo file
+document.getElementById('logoFile').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const img = new Image();
+  img.onload = () => { logoImg = img; generate(); };
+  img.src = URL.createObjectURL(file);
+});
+
+// Download full-res
+document.getElementById('saveBtn').addEventListener('click', () => {
+  const s = getS();
+  const { W, H } = totals(s);
+  const tmp = document.createElement('canvas');
+  tmp.width = W; tmp.height = H;
+  drawAll(tmp.getContext('2d'), W, H, s);
+  const a = document.createElement('a');
+  a.download = `testpattern-${W}x${H}.png`;
+  a.href = tmp.toDataURL('image/png');
+  a.click();
+});
+
+window.addEventListener('resize', generate);
+generate();
+</script>
+</body>
+</html>
